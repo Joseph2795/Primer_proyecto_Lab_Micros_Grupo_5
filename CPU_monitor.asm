@@ -68,19 +68,20 @@
 	add r9,1   ; se suma uno al contador de decenas
 	jmp %%_resta ; se devuelve al inicio de la macro
 %%copiar:
-	mov r13,r10;copia centenas
-	mov r12,r9;copia decenas
-	mov r11,r8;copia unidades
-	mov [modelo],r13 ;guarda el dato
-	mov [modelo2],r12 ;guarda el dato
-	mov [modelo3],r11 ;guarda el dato
+	mov [modelo],r10 ;guarda el dato
+	mov [modelo2],r9 ;guarda el dato
+	mov [modelo3],r8 ;guarda el dato
 	_b1:
+	cmp r10, 48
+	jle _b2
 	mov rbx, 3
 	mov rax, 4
 	mov rcx, modelo
 	mov rdx, 1
 	int 0x80
 	_b2:
+	cmp r9, 48
+	jle _b3
 	mov rbx, 3
 	mov rax, 4
 	mov rcx, modelo2
@@ -101,7 +102,7 @@ filename: db "./result.txt", 0
 cons_nueva_linea: db 0xa
 cons_header: db 'Tiempo de espera (formato MMSS): '
 cons_tam_header: equ $-cons_header
-cons_error: db 'Uso del programa: Debe ingresar un límite de tiempo en segundos para monitorear'
+cons_error: db 'Uso del programa: Debe ingresar un límite de tiempo en segundos'
 cons_tam_error: equ $-cons_error
 cons_final: db 'Muestreo completo. Resultados almacenados en el archivo'
 cons_tam_final: equ $-cons_final
@@ -193,7 +194,6 @@ mul r14
 sub r9,rax
 add r9,1
 mov [mes],r9
-mov 
 
 _dia:
 
@@ -217,35 +217,59 @@ _hora:
 add r15, 1970
 mov [ano],r15
 
-_result:
-
 _input:
+xor r8,r8
+xor r9,r9
+xor r10,r10
+xor r11,r11
 
+_rev:
 ;Primero se imprime el encabezado
 impr_texto cons_header,cons_tam_header
 ;Ahora se captura 2 teclazo
 mov rax,0 ;se pone al sistema en modo lectura
 mov rdi,0 ;input de entrada el teclado
 mov rsi,valor_max ;direccion donde se va a guardar el dato
-mov rdx,4 ;se captura dos teclazos
+mov rdx,5 ;se captura dos teclazos
 syscall
+
+_ber:
 
 mov r8,[valor_max]
 mov r9,[valor_max]
 mov r10,[valor_max]
 mov r11,[valor_max]
 shr r11,24
+and r11,0x000000FF
 and r10,0x00FF0000
 shr r10,16
 and r9,0x0000FF00
 shr r9,8
 and r8,0x000000FF
 
+_brev0:
+
+cmp r8, 48 ; revisa si el dato es mayor a 48
+jl _error ;si es mayor a 48
+cmp r8, 57 ; revisa si el dato es menor a 57
+jg _error ;si es mayor a 48
+cmp r9, 48 ; revisa si el dato es mayor a 48
+jl _error ;si es mayor a 48
+cmp r9, 57 ; revisa si el dato es menor a 57
+jg _error ;si es mayor a 48
+cmp r10, 48 ; revisa si el dato es mayor a 48
+jl _error ;si es mayor a 48
+cmp r10, 57 ; revisa si el dato es menor a 57
+jg _error ;si es mayor a 48
+cmp r11, 48 ; revisa si el dato es mayor a 48
+jl _error ;si es mayor a 48
+cmp r11, 57 ; revisa si el dato es menor a 57
+jg _error ;si es mayor a 48
+
 sub r8,0x30
 sub r9,0x30
 sub r10,0x30
 sub r11,0x30
-
 
 mov rdx,0x0 ;limpia este registro, debido a que se ocupa para guardar lo 64 bits superiores 
 mov rax,r8; primer factor
@@ -349,6 +373,28 @@ int 0x80
 
 sub r15, 1
 jnz _start_l
+jz _final	
+
+_error:
+
+impr_texto cons_error,cons_tam_error
+xor r9,r9
+mov r9, 2
+mov [tv_sec],r9
+xor r10,r10
+mov r10,0
+mov [tv_nsec],r10
+mov rax,35 ;syscall
+mov rdi,tiempo_espera
+xor rsi,rsi
+syscall
+mov rax,1     ;sys_writ
+mov rdi,1       ;std_ou
+mov rsi,cons_nueva_linea        ;primer parametro: Texto
+mov rdx,1       ;segundo parametro: Tamano texto
+syscall
+
+jmp _input
 
 ;************************************
 ;FINAL DE EJECUCION
@@ -371,6 +417,7 @@ mov rax,35 ;syscall
 mov rdi,tiempo_espera
 xor rsi,rsi
 syscall
+
 
 _bp1:
 mov eax,1
