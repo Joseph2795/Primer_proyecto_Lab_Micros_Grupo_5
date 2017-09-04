@@ -45,42 +45,61 @@
 
 %%impr_r8:
 	add r8,48 ; pasa a ascii
-        mov [modelo],r8 ; guarda el dato
+    mov [modelo],r8 ; guarda el dato
 	impr_texto modelo,1  ;imprime la unidad
-        jmp %%copiar ;copia los valores por si es necesario su posterior uso
+	mov EBX, 3
+	mov EAX, 4
+	mov ECX, modelo
+	mov EDX, 1
+	int 0x80
+    jmp %%copiar ;copia los valores por si es necesario su posterior uso
 
 
 %%impr_r9:
 	add r9,48 ; se pasa a ascii
-        mov [modelo],r9 ;guarda el dato
+    mov [modelo],r9 ;guarda el dato
 	impr_texto modelo,1  ; imprime decenas
+	mov EBX, 3
+	mov EAX, 4
+	mov ECX, modelo
+	mov EDX, 1
+	int 0x80
 	jmp %%impr_r8 ;va a imprimir las unidades
 
 %%impr_r10:
-        add r10,48 ;se pasa a ascii
-        mov [modelo],r10 ; guarda el dato
-        impr_texto modelo,1 ; imprime la centena
+    add r10,48 ;se pasa a ascii
+    mov [modelo],r10 ; guarda el dato
+    impr_texto modelo,1 ; imprime la centena
+	mov EBX, 3
+	mov EAX, 4
+	mov ECX, modelo
+	mov EDX, 1
+	int 0x80
 	jmp %%impr_r9 ; va a imprimir la decena
+
 %%dism100:
 	sub r8,100 ; se resta 100 al dato
 	add r10,1 ; se suma uno al contador de centenas
 	jmp %%_resta ; se devuelve al inicio de la macro
+
 %%dism10:
 	sub r8,10  ; se resta 10 al dato
 	add r9,1   ; se suma uno al contador de decenas
 	jmp %%_resta ; se devuelve al inicio de la macro
+
 %%copiar:
 	mov r11,r8;copia unidades
 	mov r12,r9;copia decenas
 	mov r13,r10;copia centenas
+
 %%fin:
 %endmacro
 
 section .data
 
-tabla: db "0123456789ABCDEF",0
+filename: db "./result.txt", 0
 cons_nueva_linea: db 0xa
-cons_header: db 'Cuantos segundos desea esperar (0-9)? <luego presione enter>:'
+cons_header: db 'Tiempo de espera (formato MMSS): '
 cons_tam_header: equ $-cons_header
 cons_error: db 'Uso del programa: Debe ingresar un límite de tiempo en segundos para monitorear'
 cons_tam_error: equ $-cons_error
@@ -108,6 +127,13 @@ section .text
 global _start
 
 _start: 
+
+;ABRIR ARCHIVO
+
+mov EAX, 8
+mov EBX, filename
+mov ECX, 0700
+int 0x80
 
 impr_texto cons_header,cons_tam_header
 mov rax,0
@@ -164,7 +190,7 @@ xor r9,r9
 mov r9, 1
 mov [tv_sec],r9
 xor r10,r10
-mov r10,100
+mov r10,0
 mov [tv_nsec],r10
 _bp00:
 mov rax,35 ;syscall
@@ -180,10 +206,42 @@ mov rsi,cons_nueva_linea        ;primer parametro: Texto
 mov rdx,1       ;segundo parametro: Tamano texto
 syscall
 
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_por
+mov EDX, cons_tam_por
+int 0x80
+
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_nueva_linea
+mov EDX, 1
+int 0x80
+
 sub r15, 1
 jnz _start_l
 
-_test:
+;************************************
+;FINAL DE EJECUCION
+;************************************
+
+_final:
+
+mov EAX, 6
+int 0x80
+
+impr_texto cons_terminando,cons_tam_terminando
+xor r9,r9
+mov r9, 2
+mov [tv_sec],r9
+xor r10,r10
+mov r10,0
+mov [tv_nsec],r10
+_bp09:
+mov rax,35 ;syscall
+mov rdi,tiempo_espera
+xor rsi,rsi
+syscall
 
 _bp1:
 mov eax,1
