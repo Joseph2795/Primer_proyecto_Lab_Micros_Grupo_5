@@ -42,56 +42,56 @@
 	cmp r9,0 ; revisa si hay  decenas a imprimir
 	jne %%impr_r9 ;imprime decenas
 
-
 %%impr_r8:
 	add r8,48 ; pasa a ascii
     mov [modelo],r8 ; guarda el dato
 	impr_texto modelo,1  ;imprime la unidad
-	mov EBX, 3
-	mov EAX, 4
-	mov ECX, modelo
-	mov EDX, 1
-	int 0x80
-    jmp %%copiar ;copia los valores por si es necesario su posterior uso
-
+	jmp %%copiar ;copia los valores por si es necesario su posterior uso
 
 %%impr_r9:
 	add r9,48 ; se pasa a ascii
     mov [modelo],r9 ;guarda el dato
 	impr_texto modelo,1  ; imprime decenas
-	mov EBX, 3
-	mov EAX, 4
-	mov ECX, modelo
-	mov EDX, 1
-	int 0x80
 	jmp %%impr_r8 ;va a imprimir las unidades
 
 %%impr_r10:
     add r10,48 ;se pasa a ascii
     mov [modelo],r10 ; guarda el dato
     impr_texto modelo,1 ; imprime la centena
-	mov EBX, 3
-	mov EAX, 4
-	mov ECX, modelo
-	mov EDX, 1
-	int 0x80
 	jmp %%impr_r9 ; va a imprimir la decena
-
 %%dism100:
 	sub r8,100 ; se resta 100 al dato
 	add r10,1 ; se suma uno al contador de centenas
 	jmp %%_resta ; se devuelve al inicio de la macro
-
 %%dism10:
 	sub r8,10  ; se resta 10 al dato
 	add r9,1   ; se suma uno al contador de decenas
 	jmp %%_resta ; se devuelve al inicio de la macro
-
 %%copiar:
-	mov r11,r8;copia unidades
-	mov r12,r9;copia decenas
 	mov r13,r10;copia centenas
-
+	mov r12,r9;copia decenas
+	mov r11,r8;copia unidades
+	mov [modelo],r13 ;guarda el dato
+	mov [modelo2],r12 ;guarda el dato
+	mov [modelo3],r11 ;guarda el dato
+	_b1:
+	mov rbx, 3
+	mov rax, 4
+	mov rcx, modelo
+	mov rdx, 1
+	int 0x80
+	_b2:
+	mov rbx, 3
+	mov rax, 4
+	mov rcx, modelo2
+	mov rdx, 1
+	int 0x80
+	_b3:
+	mov rbx, 3
+	mov rax, 4
+	mov rcx, modelo3
+	mov rdx, 1
+	int 0x80
 %%fin:
 %endmacro
 
@@ -109,13 +109,32 @@ cons_terminando: db 'Terminando el programa.'
 cons_tam_terminando: equ $-cons_terminando
 cons_por: db '%'
 cons_tam_por: equ $-cons_por
+cons_slash: db '/'
+cons_tam_slash: equ $-cons_slash
+cons_menor: db '<'
+cons_tam_menor: equ $-cons_menor
+cons_mayor: db '>'
+cons_tam_mayor: equ $-cons_mayor
+cons_gui: db '-'
+cons_tam_gui: equ $-cons_gui
+cons_arch: db '*****Recopilacion de resultados en archivo*****'
+cons_tam_arch: equ $-cons_arch
 
 section .bss
 ;Variable reservada para recibir datos
 result_fd: resb 8
 uptime: resw 4
 modelo: resb 8
+modelo2: resb 8
+modelo3: resb 8
 result1: resb 56
+fecha: resb 56
+ano: resb 56
+mes: resb 56
+dia: resb 56
+hora: resb 56
+minu: resb 8
+segu: resb 56
 un_byte: resb 1
 valor_max: resb 3
 tiempo_espera:
@@ -129,23 +148,131 @@ global _start
 _start: 
 
 ;ABRIR ARCHIVO
-
 mov EAX, 8
 mov EBX, filename
 mov ECX, 0700
 int 0x80
 
-impr_texto cons_header,cons_tam_header
-mov rax,0
-mov rdi,0
-mov rsi,valor_max
-mov rdx,1 ;Solamente se captura un teclazo
-syscall
-;Se retorna al usuario el valor ingresado
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_arch
+mov EDX, cons_tam_arch
+int 0x80
 
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_nueva_linea
+mov EDX, 1
+int 0x80
+
+mov rax,96
+mov rdi,fecha
+syscall
+mov r8,[fecha]
+mov rdx,0x0
+mov rax,r8
+mov r9,0x01E1853E
+div r9
+mov r15,rax
+mov r8,0x7B2
+add r8,rax
+mov [ano],r8
+
+_mes:
+
+mov r8,[fecha]
+mov rdx,0x0
+mov rax,r8
+mov r9, 0x0028206F
+div r9
+mov r9,rax
+mov rdx,0x0
+mov rax,r15
+mov r14,0xC
+mul r14
+sub r9,rax
+add r9,1
+mov [mes],r9
+mov 
+
+_dia:
+
+mov r8,[fecha]
+add r8,20000
+mov rdx,0x0
+mov rax,r8
+mov r9,86400
+div r9
+mov r9,rax
+mov rdx,0x0
+mov rax,r15
+mov r14,365
+mul r14
+sub r9,rax
+sub r9,10
+mov [dia],r9
+
+_hora:
+
+add r15, 1970
+mov [ano],r15
+
+_result:
+
+_input:
+
+;Primero se imprime el encabezado
+impr_texto cons_header,cons_tam_header
+;Ahora se captura 2 teclazo
+mov rax,0 ;se pone al sistema en modo lectura
+mov rdi,0 ;input de entrada el teclado
+mov rsi,valor_max ;direccion donde se va a guardar el dato
+mov rdx,4 ;se captura dos teclazos
+syscall
+
+mov r8,[valor_max]
+mov r9,[valor_max]
+mov r10,[valor_max]
+mov r11,[valor_max]
+shr r11,24
+and r10,0x00FF0000
+shr r10,16
+and r9,0x0000FF00
+shr r9,8
+and r8,0x000000FF
+
+sub r8,0x30
+sub r9,0x30
+sub r10,0x30
+sub r11,0x30
+
+
+mov rdx,0x0 ;limpia este registro, debido a que se ocupa para guardar lo 64 bits superiores 
+mov rax,r8; primer factor
+mov r12,0xA; almacena el otro factor de la multiplicacion, en este caso el # 100
+mul r12; se realiza la multiplicacion
+mov r8,rax
+
+mov rdx,0x0
+mov rax,r10
+mov r12,0xA
+mul r12
+mov r10,rax
+
+add r8,r9
+add r10,r11
+
+
+mov rdx,0x0
+mov rax,r8
+mov r13,0x3C
+mul r13
+mov r8,rax
+add r8,r10
+mov [valor_max],r8
 xor r15,r15
 mov r15,[valor_max]
-sub r15,0x30 ;ajuste para bajar de ASCII a decimal. Este ajuste funciona solo con 1 teclazo
+;impr_dec [valor_max]
 
 ;El valor capturado es el que se va a esperar (en segundos)
 
@@ -183,6 +310,8 @@ _div:
 mov r9,0xffff ; se almacena el divisor, en este caso el #65535
 div r9;se realiza la división, el r se almacena en rax
 mov [result1],rax
+
+_divo:
 
 impr_dec [result1]
 impr_textocons cons_por,cons_tam_por
