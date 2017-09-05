@@ -41,7 +41,7 @@
 	cmp r8,10 ; revisa si el dato es mayor 10
 	jge %%dism10 ; si es mayor a 10, se disminuyen las decenas
 	cmp r11,0; revisa si hay millares a imprimir
-	jne %%impr_11; imprime millares
+	jne %%impr_r11; imprime millares
 	cmp r10,0 ; revisa si hay centenas a imprimir
 	jne %%impr_r10 ;imprime centenas
 	cmp r9,0 ; revisa si hay  decenas a imprimir
@@ -49,13 +49,13 @@
 
 %%impr_r8:
 	add r8,48 ; pasa a ascii
-    mov [modelo],r8 ; guarda el dato
+        mov [modelo],r8 ; guarda el dato
 	impr_texto modelo,1  ;imprime la unidad
 	jmp %%copiar ;copia los valores por si es necesario su posterior uso
 
 %%impr_r9:
 	add r9,48 ; se pasa a ascii
-    mov [modelo],r9 ;guarda el dato
+        mov [modelo],r9 ;guarda el dato
 	impr_texto modelo,1  ; imprime decenas
 	jmp %%impr_r8 ;va a imprimir las unidades
 
@@ -69,12 +69,12 @@
     add r11,48; se pasa a ascii
     mov [modelo],r11; guarda el dato
     impr_texto modelo,1; imprime millar
-    jmp %%impr_r10; va a imprimir la centena
+    jmp %%impr_r10 ; va a imprimir la centena
     
 %%dism1000:
-	sub r8,1000; se resta 1000 al dato
-	add r11,1; se suma uno al contador de millares
-	jmp %%_resta; se devuelve al inicio de la macro
+	sub r8,1000 ; se resta 1000 al dato
+	add r11,1 ; se suma uno al contador de millares
+	jmp %%_resta ; se devuelve al inicio de la macro
 %%dism100:
 	sub r8,100 ; se resta 100 al dato
 	add r10,1 ; se suma uno al contador de centenas
@@ -84,7 +84,7 @@
 	add r9,1   ; se suma uno al contador de decenas
 	jmp %%_resta ; se devuelve al inicio de la macro
 %%copiar:
-	mov [modelo0],r11, guarda el dato
+	mov [modelo0],r11 ; guarda el dato
 	mov [modelo],r10 ;guarda el dato
 	mov [modelo2],r9 ;guarda el dato
 	mov [modelo3],r8 ;guarda el dato
