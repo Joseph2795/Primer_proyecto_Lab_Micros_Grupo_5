@@ -32,11 +32,16 @@
 	mov r8,%1  ;copia el dato de entrada en un registro
 	mov r9,0   ;inicializa en cero un registro
 	mov r10,0
+	mov r11,0
 %%_resta:
+	cmp r8,1000; revisa si el dato es mayor a mil
+	jge %%dism1000; si es mayor a 1000, se disminuyen los millares
 	cmp r8,100 ; revisa si el dato es mayor a 100
 	jge %%dism100 ;si es mayor a 100, se disminuyen las centenas
 	cmp r8,10 ; revisa si el dato es mayor 10
 	jge %%dism10 ; si es mayor a 10, se disminuyen las decenas
+	cmp r11,0; revisa si hay millares a imprimir
+	jne %%impr_11; imprime millares
 	cmp r10,0 ; revisa si hay centenas a imprimir
 	jne %%impr_r10 ;imprime centenas
 	cmp r9,0 ; revisa si hay  decenas a imprimir
@@ -58,7 +63,18 @@
     add r10,48 ;se pasa a ascii
     mov [modelo],r10 ; guarda el dato
     impr_texto modelo,1 ; imprime la centena
-	jmp %%impr_r9 ; va a imprimir la decena
+    jmp %%impr_r9 ; va a imprimir la decena
+    
+%%impr_r11:
+    add r11,48; se pasa a ascii
+    mov [modelo],r11; guarda el dato
+    impr_texto modelo,1; imprime millar
+    jmp %%impr_r10; va a imprimir la centena
+    
+%%dism1000:
+	sub r8,1000; se resta 1000 al dato
+	add r11,1; se suma uno al contador de millares
+	jmp %%_resta; se devuelve al inicio de la macro
 %%dism100:
 	sub r8,100 ; se resta 100 al dato
 	add r10,1 ; se suma uno al contador de centenas
@@ -68,9 +84,18 @@
 	add r9,1   ; se suma uno al contador de decenas
 	jmp %%_resta ; se devuelve al inicio de la macro
 %%copiar:
+	mov [modelo0],r11, guarda el dato
 	mov [modelo],r10 ;guarda el dato
 	mov [modelo2],r9 ;guarda el dato
 	mov [modelo3],r8 ;guarda el dato
+	_b0:
+	cmp r11,48
+	jle _b1
+	mov rbx, 3
+	mov rax, 4
+	mov rcx, modelo0
+	mov rdx, 1
+	int 0x80
 	_b1:
 	cmp r10, 48
 	jle _b2
@@ -125,6 +150,7 @@ section .bss
 ;Variable reservada para recibir datos
 result_fd: resb 8
 uptime: resw 4
+modelo0: resb 8
 modelo: resb 8
 modelo2: resb 8
 modelo3: resb 8
@@ -151,7 +177,7 @@ _start:
 ;ABRIR ARCHIVO
 mov EAX, 8
 mov EBX, filename
-mov ECX, 0700
+mov ECX, 0700; sustituir 0700 por 0777 o por 7777; esto para cual da el permiso total sistema
 int 0x80
 
 mov EBX, 3
@@ -166,34 +192,46 @@ mov ECX, cons_nueva_linea
 mov EDX, 1
 int 0x80
 
-mov rax,96
-mov rdi,fecha
-syscall
-mov r8,[fecha]
-mov rdx,0x0
-mov rax,r8
-mov r9,0x01E1853E
-div r9
-mov r15,rax
-mov r8,0x7B2
-add r8,rax
-mov [ano],r8
+; Esta sección se encarga de conseguir la fecha y la hora actuales de computadora. 
+; La función utilizada es gettimeofday, la cual me da un valor en segundos del tiempo que a pasado desde 1/1/70, a esto se le llama EPOCH.
+; Debido a que el dato se obtiene en segundos, hay que realizar distintas conversiones para obtener los valores del año, mes, día, hora,
+; minutos y segundos actuales
 
+;Conseguir año
+_ano:
+
+mov rax,96; deja listo cual llamada de siste se va hacer
+mov rdi,fecha; direcciona la posición en la que se va a guardar
+syscall; se hace la llamada de sistema
+mov r8,[fecha]; se obtiene el valor almacenado en dicha dirección, para su uso
+mov rdx,0x0
+mov rax,r8; se agrega el dividendo
+mov r9,0x01E1853E; se agrega el divisor, en este caso corresponde al numero de segundos que hay en un año
+div r9; se realiza la divison
+mov r15,rax ; se almacena los número de años que han pasado desde la fecha mencionada, hasta la fecha actual
+mov r8,0x7B2; se agrega el numero 1970
+add r8,rax; se suma el numero de años que han pasado a 1970, para obtener el año actual
+mov [ano],r8; se almacena el dato final en la variable ano
+
+;Conseguir mes
 _mes:
 
 mov r8,[fecha]
 mov rdx,0x0
 mov rax,r8
-mov r9, 0x0028206F
+mov r9, 0x0028206F ; se agrega el divisor, en este caso corresponde al numero de segundos que hay en un mes
 div r9
-mov r9,rax
-mov rdx,0x0
-mov rax,r15
-mov r14,0xC
-mul r14
-sub r9,rax
-add r9,1
-mov [mes],r9
+mov r9,rax ; se almacena los número de años que han pasado desde la fecha mencionada, hasta la fecha actual
+mov rdx,0x0; se limpia el registro
+mov rax,r15; se agrega el primer factor, en este caso el numero de años que han pasado
+mov r14,0xC; se agrega el segundo factor, en este caso el numero de meses que hay en un año
+mul r14; se realiza la multiplicacion
+sub r9,rax; lo que se acá, es que para obtener el mes actual, se resta el numero de meses totales que han pasado desde 1/1/70 menos
+; los que han pasado hasta el 1/1/año actual, el residuo es el número de meses que han pasado desde inicio de año
+add r9,1; factor de correción del numero de meses
+mov [mes],r9 ; se guarda el dato
+
+;Conseguir dia 
 
 _dia:
 
@@ -201,21 +239,24 @@ mov r8,[fecha]
 add r8,20000
 mov rdx,0x0
 mov rax,r8
-mov r9,86400
+mov r9,86400 ;se agrega el divisor, en este caso corresponde al numero de segundos que hay en un día
 div r9
 mov r9,rax
 mov rdx,0x0
+; similar a lo que se hizo para el mes, se realiza realiza una diferencia entre el numero total de días que han pasado hasta ahora, menos 
+; los que han pasado hasta inicio de año. El valor resultante será el número del día del año (1-365). La fecha exacta del día, no se realiza
+; debido a su complejidad.
 mov rax,r15
 mov r14,365
 mul r14
 sub r9,rax
-sub r9,10
-mov [dia],r9
+sub r9,10; correción de los días bisiestos 
+mov [dia],r9; se guardo el dato
 
 _hora:
 
-add r15, 1970
-mov [ano],r15
+;add r15, 1970
+;mov [ano],r15
 
 _input:
 xor r8,r8
@@ -226,28 +267,33 @@ xor r11,r11
 _rev:
 ;Primero se imprime el encabezado
 impr_texto cons_header,cons_tam_header
-;Ahora se captura 2 teclazo
+;Ahora se captura 5 teclazos (cuatro del tiempo y uno de la tecla enter)
 mov rax,0 ;se pone al sistema en modo lectura
 mov rdi,0 ;input de entrada el teclado
 mov rsi,valor_max ;direccion donde se va a guardar el dato
-mov rdx,5 ;se captura dos teclazos
+mov rdx,5 ;se captura 5 teclazos
 syscall
 
 _ber:
-
+; se guarda el mismo dato en varios registros, para su posterior uso
 mov r8,[valor_max]
 mov r9,[valor_max]
 mov r10,[valor_max]
 mov r11,[valor_max]
-shr r11,24
-and r11,0x000000FF
-and r10,0x00FF0000
-shr r10,16
-and r9,0x0000FF00
-shr r9,8
-and r8,0x000000FF
+;se comienza a adquirir número por número del dato ingresado del usuario, para su posterior conversión de ascii a int
+shr r11,24 ; se adquiere unidades de los segundos
+and r11,0x000000FF ; se limpia el registro de cualquier dato indeseado 
+and r10,0x00FF0000 ; se limpia el registro de cualquier dato indeseado
+shr r10,16 ; se adquiere las decenas de los segundos
+and r9,0x0000FF00 ; se limpia el registro de cualquier dato indeseado
+shr r9,8 ; se adquiere las unidades de los minutos
+and r8,0x000000FF ; se limpia el registro de cualquier dato indeseado y se adquiere el las decenas de los minutos
 
 _brev0:
+;esta sección es para verificar que el usuario no ingrese ningún caracter indebido
+;como los datos deben ser solo número, se realiza la comparación de los valores ascii ingresados
+;con los valores ascii de 0 (48) y 9 (57). Sí se ingresa algún caracter que no este en ese rango
+;se le comunica al usuario que debe ingresar solo números y se le vuelve a solicitar el dato
 
 cmp r8, 48 ; revisa si el dato es mayor a 48
 jl _error ;si es mayor a 48
@@ -266,16 +312,24 @@ jl _error ;si es mayor a 48
 cmp r11, 57 ; revisa si el dato es menor a 57
 jg _error ;si es mayor a 48
 
+;se realiza la conversión de ascii a su valor decimal, para hacer el dato útil para las operaciones
+
 sub r8,0x30
 sub r9,0x30
 sub r10,0x30
 sub r11,0x30
 
+; se obtienen los valores de las decenas
+
+; decenas de los minutos
+
 mov rdx,0x0 ;limpia este registro, debido a que se ocupa para guardar lo 64 bits superiores 
 mov rax,r8; primer factor
-mov r12,0xA; almacena el otro factor de la multiplicacion, en este caso el # 100
+mov r12,0xA; almacena el otro factor de la multiplicacion, en este caso el # 10
 mul r12; se realiza la multiplicacion
 mov r8,rax
+
+;decenas de los segundos
 
 mov rdx,0x0
 mov rax,r10
@@ -283,19 +337,22 @@ mov r12,0xA
 mul r12
 mov r10,rax
 
+; se obtiene el valor final de minutos y segundos por separados
 add r8,r9
 add r10,r11
 
+;se obtiene el valor final de la cantidad de segundos ingresados. Se convierte la cantidad de minutos a segundos 
+;y se le agrega los segundos restantes.
 
-mov rdx,0x0
-mov rax,r8
-mov r13,0x3C
-mul r13
-mov r8,rax
-add r8,r10
-mov [valor_max],r8
-xor r15,r15
-mov r15,[valor_max]
+mov rdx,0x0 ;limpia este registro, almacena primeramente los bits superiores y luego de la operación, almacena el producto de la multiplicacion
+mov rax,r8; se agrega el primer factor, en este caso el numero de segundos
+mov r13,0x3C; se agrega el segundo factor, que sería 60, el equivalente de un minutos en segundos
+mul r13; se realiza la multiplicacion
+mov r8,rax ; se pasa el valor de la multiplicación al registro r8
+add r8,r10 ; se le termina de agregar los segundos ingresados por usuario
+mov [valor_max],r8 ; se almacena el dato en valor_max
+xor r15,r15 ; limpia este registro
+mov r15,[valor_max], pasa el valor de valor_max al registro 15
 ;impr_dec [valor_max]
 
 ;El valor capturado es el que se va a esperar (en segundos)
@@ -307,18 +364,25 @@ _esperar:
 ;xor rsi,rsi
 ;syscall
 
+
 _start_l:
 
-mov rax,0x63
-mov rdi, uptime
-mov rdx, uptime+8
-syscall
-mov rsi,[rdx]
-;Seccion que se encarga de multiplicar el dato por 100,para convertirlo a %
+;esta parte es para obtener el valor de la carga de la computadora 
+
+mov rax,0x63; realiza la llamada SysInfo, para obtener la informacion de la computadora
+mov rdi, uptime; se almacena dicha info en esta direccion
+mov rdx, uptime+8; se ingresa al dato de interés, en este caso la carga de la computadora en un minuto
+syscall; se realiza la llamada de sistema
+mov rsi,[rdx] ; se almacena la informacion a la que apunta rdx, en rsi
+
+;Seccion que se encarga de multiplicar el dato por 100 y luego dividirlo por 65535, para obtener el porcentaje de la carga del CPU
 ;La multiplicacion a realizar multiplica un reg de 64bits por un # de 64 bits
 ;El resultado se almacena en dos reg, uno para los 64 bits superiores y otro para los 64 inferiores
 ;En rdx se almacenan los bits superiores y en rax, primero se encuentra uno
-;de los factores y luego de la multiplicacion, se almacenan los 64 bits inferiores del producto
+;de los factores y luego de la multiplicacion, se almacenan los 64 bits inferiores del producto.
+;La división funciona de manera similar, solo que el dato del dividendo se almacena en dos registros,
+;uno para los bits superiores y otro para los inferiores, y otro para el divisor
+;Despues de la division, el dato del cociente se almacena en un solo reg de 64 bits
 
 _mul:
 
@@ -332,8 +396,8 @@ mul r8; se realiza la multiplicacion
 _div:
 
 mov r9,0xffff ; se almacena el divisor, en este caso el #65535
-div r9;se realiza la división, el r se almacena en rax
-mov [result1],rax
+div r9;se realiza la división, el resultado se almacena en rax
+mov [result1],rax ; se almacena el dato final de la carga en result1
 
 _divo:
 
@@ -350,6 +414,8 @@ mov rax,35 ;syscall
 mov rdi,tiempo_espera
 xor rsi,rsi
 syscall
+
+;para realizar un salto de línea entre cada dato que se imprime
 
 _saltodelinea:
 
