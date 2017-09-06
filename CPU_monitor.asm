@@ -49,13 +49,13 @@
 
 %%impr_r8:
 	add r8,48 ; pasa a ascii
-        mov [modelo],r8 ; guarda el dato
+    mov [modelo],r8 ; guarda el dato
 	impr_texto modelo,1  ;imprime la unidad
 	jmp %%copiar ;copia los valores por si es necesario su posterior uso
 
 %%impr_r9:
 	add r9,48 ; se pasa a ascii
-        mov [modelo],r9 ;guarda el dato
+    mov [modelo],r9 ;guarda el dato
 	impr_texto modelo,1  ; imprime decenas
 	jmp %%impr_r8 ;va a imprimir las unidades
 
@@ -88,31 +88,39 @@
 	mov [modelo],r10 ;guarda el dato
 	mov [modelo2],r9 ;guarda el dato
 	mov [modelo3],r8 ;guarda el dato
-	_b0:
+	%%_b0:
 	cmp r11,48
-	jle _b1
+	jle %%_b1
+	cmp r11,57
+	jge %%_b1
 	mov rbx, 3
 	mov rax, 4
 	mov rcx, modelo0
 	mov rdx, 1
 	int 0x80
-	_b1:
-	cmp r10, 48
-	jle _b2
+	%%_b1:
+	mov r10, [modelo]
+	cmp r10,48
+	jle %%_b2
+	cmp r10,57
+	jge %%_b2
 	mov rbx, 3
 	mov rax, 4
 	mov rcx, modelo
 	mov rdx, 1
 	int 0x80
-	_b2:
-	cmp r9, 48
-	jle _b3
+	%%_b2:
+	mov r9, [modelo2]
+	cmp r9,48
+	jle %%_b3
+	cmp r9,57
+	jge %%_b3
 	mov rbx, 3
 	mov rax, 4
 	mov rcx, modelo2
 	mov rdx, 1
 	int 0x80
-	_b3:
+	%%_b3:
 	mov rbx, 3
 	mov rax, 4
 	mov rcx, modelo3
@@ -129,7 +137,7 @@ cons_header: db 'Tiempo de espera (formato MMSS): '
 cons_tam_header: equ $-cons_header
 cons_error: db 'Uso del programa: Debe ingresar un límite de tiempo en segundos'
 cons_tam_error: equ $-cons_error
-cons_final: db 'Muestreo completo. Resultados almacenados en el archivo'
+cons_final: db 'Muestreo completo. Resultados almacenados en el archivo <result.txt>'
 cons_tam_final: equ $-cons_final
 cons_terminando: db 'Terminando el programa.'
 cons_tam_terminando: equ $-cons_terminando
@@ -143,6 +151,8 @@ cons_mayor: db '>'
 cons_tam_mayor: equ $-cons_mayor
 cons_gui: db '-'
 cons_tam_gui: equ $-cons_gui
+cons_esp: db ' '
+cons_tam_esp: equ $-cons_esp
 cons_arch: db '*****Recopilacion de resultados en archivo*****'
 cons_tam_arch: equ $-cons_arch
 
@@ -177,7 +187,7 @@ _start:
 ;ABRIR ARCHIVO
 mov EAX, 8
 mov EBX, filename
-mov ECX, 0700; sustituir 0700 por 0777 o por 7777; esto para cual da el permiso total sistema
+mov ECX, 0777o; sustituir 0700 por 0777 o por 7777; esto para cual da el permiso total sistema
 int 0x80
 
 mov EBX, 3
@@ -259,6 +269,7 @@ _hora:
 ;mov [ano],r15
 
 _input:
+;LIMPIA VARIABLES 
 xor r8,r8
 xor r9,r9
 xor r10,r10
@@ -352,7 +363,7 @@ mov r8,rax ; se pasa el valor de la multiplicación al registro r8
 add r8,r10 ; se le termina de agregar los segundos ingresados por usuario
 mov [valor_max],r8 ; se almacena el dato en valor_max
 xor r15,r15 ; limpia este registro
-mov r15,[valor_max], pasa el valor de valor_max al registro 15
+mov r15,[valor_max]; pasa el valor de valor_max al registro 15
 ;impr_dec [valor_max]
 
 ;El valor capturado es el que se va a esperar (en segundos)
@@ -401,8 +412,63 @@ mov [result1],rax ; se almacena el dato final de la carga en result1
 
 _divo:
 
+impr_texto cons_menor, cons_tam_menor
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_menor
+mov EDX, cons_tam_menor
+int 0x80
+impr_dec [dia]
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_slash
+mov EDX, cons_tam_slash
+int 0x80
+impr_texto cons_slash, cons_tam_slash
+impr_dec [mes]
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_slash
+mov EDX, cons_tam_slash
+int 0x80
+impr_texto cons_slash, cons_tam_slash
+impr_dec [ano]
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_mayor
+mov EDX, cons_tam_mayor
+int 0x80
+impr_texto cons_mayor, cons_tam_mayor
+
+impr_texto cons_esp, cons_tam_esp
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_esp
+mov EDX, cons_tam_esp
+int 0x80
+
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_menor
+mov EDX, cons_tam_menor
+int 0x80
+impr_texto cons_menor, cons_tam_menor
 impr_dec [result1]
 impr_textocons cons_por,cons_tam_por
+impr_texto cons_mayor, cons_tam_mayor
+
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_por
+mov EDX, cons_tam_por
+int 0x80
+
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_mayor
+mov EDX, cons_tam_mayor
+int 0x80
+
 xor r9,r9
 mov r9, 1
 mov [tv_sec],r9
@@ -424,12 +490,6 @@ mov rdi,1       ;std_ou
 mov rsi,cons_nueva_linea        ;primer parametro: Texto
 mov rdx,1       ;segundo parametro: Tamano texto
 syscall
-
-mov EBX, 3
-mov EAX, 4
-mov ECX, cons_por
-mov EDX, cons_tam_por
-int 0x80
 
 mov EBX, 3
 mov EAX, 4
@@ -470,6 +530,23 @@ _final:
 
 mov EAX, 6
 int 0x80
+
+impr_texto cons_final,cons_tam_final
+xor r9,r9
+mov r9, 2
+mov [tv_sec],r9
+xor r10,r10
+mov r10,0
+mov [tv_nsec],r10
+mov rax,35 ;syscall
+mov rdi,tiempo_espera
+xor rsi,rsi
+syscall
+mov rax,1     ;sys_writ
+mov rdi,1       ;std_ou
+mov rsi,cons_nueva_linea        ;primer parametro: Texto
+mov rdx,1       ;segundo parametro: Tamano texto
+syscall
 
 impr_texto cons_terminando,cons_tam_terminando
 xor r9,r9
