@@ -153,6 +153,8 @@ cons_gui: db '-'
 cons_tam_gui: equ $-cons_gui
 cons_esp: db ' '
 cons_tam_esp: equ $-cons_esp
+cons_pts: db ':'
+cons_tam_pts: equ $-cons_pts
 cons_arch: db '*****Recopilacion de resultados en archivo*****'
 cons_tam_arch: equ $-cons_arch
 
@@ -173,6 +175,10 @@ hora: resb 56
 minu: resb 8
 segu: resb 56
 un_byte: resb 1
+dia1: resb 8
+ano1: resb 8
+hora1: resb 8
+min1: resb 8
 valor_max: resb 5
 tiempo_espera:
 	tv_sec: resq 1 ;Cantidad de espera en segundos
@@ -208,65 +214,7 @@ int 0x80
 ; minutos y segundos actuales
 
 ;Conseguir año
-_ano:
 
-mov rax,96; deja listo cual llamada de siste se va hacer
-mov rdi,fecha; direcciona la posición en la que se va a guardar
-syscall; se hace la llamada de sistema
-mov r8,[fecha]; se obtiene el valor almacenado en dicha dirección, para su uso
-mov rdx,0x0
-mov rax,r8; se agrega el dividendo
-mov r9,0x01E1853E; se agrega el divisor, en este caso corresponde al numero de segundos que hay en un año
-div r9; se realiza la divison
-mov r15,rax ; se almacena los número de años que han pasado desde la fecha mencionada, hasta la fecha actual
-mov r8,0x7B2; se agrega el numero 1970
-add r8,rax; se suma el numero de años que han pasado a 1970, para obtener el año actual
-mov [ano],r8; se almacena el dato final en la variable ano
-
-;Conseguir mes
-_mes:
-
-mov r8,[fecha]
-mov rdx,0x0
-mov rax,r8
-mov r9, 0x0028206F ; se agrega el divisor, en este caso corresponde al numero de segundos que hay en un mes
-div r9
-mov r9,rax ; se almacena los número de años que han pasado desde la fecha mencionada, hasta la fecha actual
-mov rdx,0x0; se limpia el registro
-mov rax,r15; se agrega el primer factor, en este caso el numero de años que han pasado
-mov r14,0xC; se agrega el segundo factor, en este caso el numero de meses que hay en un año
-mul r14; se realiza la multiplicacion
-sub r9,rax; lo que se acá, es que para obtener el mes actual, se resta el numero de meses totales que han pasado desde 1/1/70 menos
-; los que han pasado hasta el 1/1/año actual, el residuo es el número de meses que han pasado desde inicio de año
-add r9,1; factor de correción del numero de meses
-mov [mes],r9 ; se guarda el dato
-
-;Conseguir dia 
-
-_dia:
-
-mov r8,[fecha]
-add r8,20000
-mov rdx,0x0
-mov rax,r8
-mov r9,86400 ;se agrega el divisor, en este caso corresponde al numero de segundos que hay en un día
-div r9
-mov r9,rax
-mov rdx,0x0
-; similar a lo que se hizo para el mes, se realiza realiza una diferencia entre el numero total de días que han pasado hasta ahora, menos 
-; los que han pasado hasta inicio de año. El valor resultante será el número del día del año (1-365). La fecha exacta del día, no se realiza
-; debido a su complejidad.
-mov rax,r15
-mov r14,365
-mul r14
-sub r9,rax
-sub r9,10; correción de los días bisiestos 
-mov [dia],r9; se guardo el dato
-
-_hora:
-
-;add r15, 1970
-;mov [ano],r15
 
 _input:
 ;LIMPIA VARIABLES 
@@ -327,18 +275,11 @@ xor r12,r12
 
 cmp r8, 48 ; revisa si el dato es mayor a 48
 jne _continue
-inc r12;
 cmp r9, 48 ; revisa si el dato es mayor a 48
 jne _continue
-inc r12;
 cmp r10, 48 ; revisa si el dato es mayor a 48
 jne _continue
-inc r12;
 cmp r11, 48 ; revisa si el dato es mayor a 48
-jne _continue
-inc r12;
-
-cmp r12, 4
 je _error
 
 
@@ -390,13 +331,197 @@ mov r15,[valor_max]; pasa el valor de valor_max al registro 15
 
 ;El valor capturado es el que se va a esperar (en segundos)
 
-_esperar:
+_loop_f:
+
+;Conseguir año
+_ano:
+
+mov rax,96; deja listo cual llamada de siste se va hacer
+mov rdi,fecha; direcciona la posición en la que se va a guardar
+syscall; se hace la llamada de sistema
+mov r8,[fecha]; se obtiene el valor almacenado en dicha dirección, para su uso
+mov rdx,0x0
+mov rax,r8; se agrega el dividendo
+mov r9,0x01E1853E; se agrega el divisor, en este caso corresponde al numero de segundos que hay en un año
+div r9; se realiza la divison
+mov [ano1],rax ; se almacena los número de años que han pasado desde la fecha mencionada, hasta la fecha actual
+mov r8,0x7B2; se agrega el numero 1970
+add r8,rax; se suma el numero de años que han pasado a 1970, para obtener el año actual
+mov [ano],r8; se almacena el dato final en la variable ano
+
+;Conseguir mes
+_mes:
+
+mov r8,[fecha]
+mov rdx,0x0
+mov rax,r8
+mov r9, 0x0028206F ; se agrega el divisor, en este caso corresponde al numero de segundos que hay en un mes
+div r9
+mov r9,rax ; se almacena los número de años que han pasado desde la fecha mencionada, hasta la fecha actual
+mov rdx,0x0; se limpia el registro
+mov rax,[ano1]; se agrega el primer factor, en este caso el numero de años que han pasado
+mov r14,0xC; se agrega el segundo factor, en este caso el numero de meses que hay en un año
+mul r14; se realiza la multiplicacion
+sub r9,rax; lo que se acá, es que para obtener el mes actual, se resta el numero de meses totales que han pasado desde 1/1/70 menos
+; los que han pasado hasta el 1/1/año actual, el residuo es el número de meses que han pasado desde inicio de año
+add r9,1; factor de correción del numero de meses
+mov [mes],r9 ; se guarda el dato
+
+;Conseguir dia 
+
+_dia:
+
+mov r8,[fecha]
+mov rdx,0x0
+mov rax,[ano1]
+mov r10,31556926
+mul r10
+mov r10,rax
+sub r8,r10
+mov [dia1],r8
+mov rdx,0x0
+mov rax,r8
+mov r11,86400
+div r11
+mov r8,rax
+mov [dia],r8
+
+_hora:
+
+mov r8,[dia1];valor en total de segundos en días
+;para obtener número de meses que han pasado
+mov r9,[mes]
+sub r9,1
+;obtener el valor en segundos del numero de meses
+mov rdx,0x0
+mov rax,r9
+mov r10,2629743
+mul r10
+mov r9,rax
+;le quito los meses que han pasado
+sub r8,r9
+;le quito la cantidad de días que han pasado hasta ahor, sin contar el actual
+mov r11,[dia]
+sub r11,244;numero de días que han pasado hasta inicio de mes
+_br0:
+mov rdx,0x0
+mov rax,r11
+mov r10,86400
+mul r10
+_br1:
+mov r9,rax
+sub r8,r9
+sub r8,32400
+mov [hora1],r8
+mov rdx,0x0
+mov rax,r8
+mov r10,3600
+div r10
+mov r8,rax
+mov [hora],r8
+
+_min:
+
+mov r8,[hora1]
+mov r11,[hora]
+mov rdx,0x0
+mov rax,r11
+mov r10,3600
+mul r10
+mov r11,rax
+sub r8,r11
+mov [min1],r8
+mov rdx,0x0
+mov rax,r8
+mov r10,60
+div r10
+mov r8,rax
+add r8,4
+mov [minu],r8
+
+_seg:
+
+mov r8,[min1]
+add r8,200
+mov rdx,0x0
+mov rax,[minu]
+mov r10,60
+mul r10
+mov r9,rax
+sub r9,r8
+mov [segu],r9
+
+impr_texto cons_menor, cons_tam_menor
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_menor
+mov EDX, cons_tam_menor
+int 0x80
+impr_dec [dia]
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_slash
+mov EDX, cons_tam_slash
+int 0x80
+impr_texto cons_slash, cons_tam_slash
+impr_dec [mes]
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_slash
+mov EDX, cons_tam_slash
+int 0x80
+impr_texto cons_slash, cons_tam_slash
+impr_dec [ano]
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_mayor
+mov EDX, cons_tam_mayor
+int 0x80
+impr_texto cons_mayor, cons_tam_mayor
+impr_texto cons_esp, cons_tam_esp
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_esp
+mov EDX, cons_tam_esp
+int 0x80
+impr_texto cons_menor, cons_tam_menor
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_menor
+mov EDX, cons_tam_menor
+int 0x80
+impr_dec [hora]
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_pts
+mov EDX, cons_tam_pts
+int 0x80
+impr_texto cons_pts, cons_tam_pts
+impr_dec [minu]
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_pts
+mov EDX, cons_tam_pts
+int 0x80
+impr_texto cons_pts, cons_tam_pts
+impr_dec [segu]
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_mayor
+mov EDX, cons_tam_mayor
+int 0x80
+impr_texto cons_mayor, cons_tam_mayor
 
 ;mov rax,35 ;syscall
 ;mov rdi,tiempo_espera
 ;xor rsi,rsi
 ;syscall
 
+xor r8, r8
+xor r9, r9
+xor r10, r10
+xor r11, r11
+xor r12, r12
 
 _start_l:
 
@@ -434,34 +559,6 @@ mov [result1],rax ; se almacena el dato final de la carga en result1
 
 _divo:
 
-impr_texto cons_menor, cons_tam_menor
-mov EBX, 3
-mov EAX, 4
-mov ECX, cons_menor
-mov EDX, cons_tam_menor
-int 0x80
-impr_dec [dia]
-mov EBX, 3
-mov EAX, 4
-mov ECX, cons_slash
-mov EDX, cons_tam_slash
-int 0x80
-impr_texto cons_slash, cons_tam_slash
-impr_dec [mes]
-mov EBX, 3
-mov EAX, 4
-mov ECX, cons_slash
-mov EDX, cons_tam_slash
-int 0x80
-impr_texto cons_slash, cons_tam_slash
-impr_dec [ano]
-mov EBX, 3
-mov EAX, 4
-mov ECX, cons_mayor
-mov EDX, cons_tam_mayor
-int 0x80
-impr_texto cons_mayor, cons_tam_mayor
-
 impr_texto cons_esp, cons_tam_esp
 mov EBX, 3
 mov EAX, 4
@@ -491,6 +588,18 @@ mov ECX, cons_mayor
 mov EDX, cons_tam_mayor
 int 0x80
 
+mov rax,1     ;sys_writ
+mov rdi,1       ;std_ou
+mov rsi,cons_nueva_linea        ;primer parametro: Texto
+mov rdx,1       ;segundo parametro: Tamano texto
+syscall
+
+mov EBX, 3
+mov EAX, 4
+mov ECX, cons_nueva_linea
+mov EDX, 1
+int 0x80
+
 xor r9,r9
 mov r9, 1
 mov [tv_sec],r9
@@ -507,20 +616,9 @@ syscall
 
 _saltodelinea:
 
-mov rax,1     ;sys_writ
-mov rdi,1       ;std_ou
-mov rsi,cons_nueva_linea        ;primer parametro: Texto
-mov rdx,1       ;segundo parametro: Tamano texto
-syscall
-
-mov EBX, 3
-mov EAX, 4
-mov ECX, cons_nueva_linea
-mov EDX, 1
-int 0x80
 
 sub r15, 1
-jnz _start_l
+jnz _loop_f
 jz _final	
 
 _error:
