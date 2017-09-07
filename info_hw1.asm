@@ -52,61 +52,59 @@
 %endmacro
 ;------------------------- FIN DE MACRO --------------------------------
 
+;-------------------------  MACRO #4  ----------------------------------
+%macro impr_decfe 1 ;imprime el dato de entrada en decimal, solo puede imprimir del 0 al 99
+	mov r8,%1  ;copia el dato de entrada en un registro
+	mov r9,0   ;inicializa en cero un registro
+%%_resta1:
+	cmp r8,10 ; revisa si hay  decenas a imprimir
+	jge %%dism101 ;imprime decenas
+	jmp %%impr_r91
+%%impr_r81:
+	add r8,48 ; pasa a ascii
+        mov [modelo],r8 ; guarda el dato
+	impr_texto modelo,1  ;imprime la unidad
+	jmp %%copia1 ;copia los valores por si es necesario su posterior uso
 
+%%impr_r91:
+	add r9,48 ; se pasa a ascii
+        mov [modelo],r9 ;guarda el dato
+	impr_texto modelo,1  ; imprime decenas
+	jmp %%impr_r81 ;va a imprimir las unidades
+%%dism101:
+	sub r8,10  ; se resta 10 al dato
+	add r9,1   ; se suma uno al contador de decenas
+	jmp %%_resta1 ; se devuelve al inicio de la macro
+%%copia1:
+	mov [modelo2],r9 ;guarda el dato
+	mov [modelo3],r8 ;guarda el dato
+	%%_b21:
+	mov r9, [modelo2]
+	cmp r9,48
+	jle %%_b31
+	cmp r9,57
+	jge %%_b31
+	mov rbx, 3
+	mov rax, 4
+	mov rcx, modelo2
+	mov rdx, 1
+	int 0x80
+	%%_b31:
+	mov rbx, 3
+	mov rax, 4
+	mov rcx, modelo3
+	mov rdx, 1
+	int 0x80
+%%fin:
+%endmacro
+
+;------------------------- FIN DE MACRO --------------------------------
 section  .data
 
-   
   tabla: db "0123456789ABCDEF",0
-  msj_cache_t : db 'Informacion de la memoria cache:  '
-  msj_tam_cache_t: equ $-msj_cache_t
-  cache_t db 'Cache Total=0x '
-  tam_cache_t: equ $-cache_t
-  limp_terminal    db 0x1b, "[2J", 0x1b, "[H"  
+;----------------------------------Interfaz------------------------------------------------------
+  limp_terminal    db 0x1b, "[2J", 0x1b, "[H"    ;Utilizado para limpiar la pantalla
   limp_terminal_tam equ $ - limp_terminal
-  ram_t db 'Memoria RAM total=0x '
-  tam_ram_t: equ $-ram_t
-
-  ram_libre db 'Memoria RAM libre=0x '
-  tam_ram_libre: equ $-ram_libre
-
-  SLinea db 0xa
-   cons_nueva_linea: db 0xa
-;--------------------INFO--------------------------------------------------------------------------------------
-
-cons_hex_header: db ' 0x'
- cons_tam_hex_header: equ $-cons_hex_header
- cons_fabricante: db 'Fabricante: '
- cons_tam_fabricante: equ $-cons_fabricante
-cons_stepping: db 'Stepping - Numero revision: '
-cons_tam_stepping: equ $-cons_stepping
- cons_familia: db 'Familia: '
-cons_modelo: db 'Modelo: '
-cons_tam_modelo: equ $-cons_modelo
-cons_tam_familia: equ $-cons_familia
-cons_tipo_cpu: db 'Tipo de procesador: '
-cons_tam_tipo_cpu: equ $-cons_tipo_cpu
-cons_modelo_ext: db 'Modelo extendido: '
-cons_tam_modelo_ext: equ $-cons_modelo_ext  
-PN db  'Nombre del procesador:  ', 
-tam_PN: equ $-PN
-ID db  'Información del procesador:  ', 
-tam_ID: equ $-ID
-MR db  'Información del la memoria RAM:  ', 
-tam_MR: equ $-MR
-CT db  'Información de Cores y Threads:  ', 
-tam_CT: equ $-CT
-
-
-
-SLinea2 db 0xa
-cons_nueva_linea2: equ $-SLinea2
-cores:db'Cores :'
-tam_cores:equ $-cores
-threads: db 'Threads : '
-tam_threads:equ $-threads
-
-
-;-------------------------------------------------------------------------------------------------------------------
 
 ;---------------------------------------------SUB MENU-------------------------------------------------------------------
 cons_info2  db '-----------------------------------Opciones------------------------------------',13,10,13,10
@@ -126,12 +124,13 @@ cons_info db '                       Instituto Tecnologico de Costa Rica',13,10 
                  db '                         Escuela de Ing en Electronica',13,10
                  db '                 Laboratorio de Estructura de Microprocesadores',13,10,13,10
                  db '-------------------------------------MENU---------------------------------------',13,10,13,10
-                 db '1. Ver Info del Microprocesador',13,10
+                 db '1. Ver Info del Microprocesador',13,10,13,10
                  db '2. Ver Info de la Memoria Cache',13,10
                  db '3. Ver Info de la memoria RAM',13,10
 		 db '4. Ver nombre del procesador',13,10
 		 db '5. Ver Cores y Threads',13,10
-                 db '6. Salir',13,10,13,10
+                 db '6. Ver info de disco duro',13,10,13,10
+		 db '7. Salir',13,10,13,10
                  db '--------------------------------------------------------------------------------',13,10,13,10
                  db 'Seleccione una Opcion: ',13,10		; Banner para el usuario
 cons_tamano_info: equ $-cons_info					; Longitud del banner
@@ -154,13 +153,90 @@ cons_info3 db '                       Instituto Tecnologico de Costa Rica',13,10
                  db '--------------------------------------------------------------------------------',13,10,13,10
 cons_tamano_info3: equ $-cons_info3					; Longitud del banner
 variable1: db''													;Almacenamiento de la tecla capturada
-termios:        times 36 db 0									;Estructura de 36bytes que contiene el modo de operacion de la consola
-stdin:          	  equ 0												;Standard Input (se usa stdin en lugar de escribir manualmente los valores)
-ICANON:      equ 1<<1											;ICANON: Valor de control para encender/apagar el modo canonico
 ;------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
+
+;---------------------------Variables usadas en la caché----------------------------
+  msj_cache_t : db 'Informacion de la memoria cache:  '
+  msj_tam_cache_t: equ $-msj_cache_t
+  cache_t db 'Bloque: 0x '
+  tam_cache_t: equ $-cache_t
+;---------------------------Variables usadas en la RAM----------------------------
+  ram_t db 'Memoria RAM total: 0x '
+  tam_ram_t: equ $-ram_t
+
+  ram_libre db 'Memoria RAM libre: 0x '
+  tam_ram_libre: equ $-ram_libre
+
+MR db  'Información del la memoria RAM:  ', 
+tam_MR: equ $-MR
+;--------------------INFO--------------------------------------------------------------------------------------
+
+cons_hex_header: db ' 0x'
+ cons_tam_hex_header: equ $-cons_hex_header
+ cons_fabricante: db 'Fabricante: '
+ cons_tam_fabricante: equ $-cons_fabricante
+cons_stepping: db 'Stepping - Numero revision: '
+cons_tam_stepping: equ $-cons_stepping
+ cons_familia: db 'Familia: '
+cons_modelo: db 'Modelo: '
+cons_tam_modelo: equ $-cons_modelo
+cons_tam_familia: equ $-cons_familia
+cons_tipo_cpu: db 'Tipo de procesador: '
+cons_tam_tipo_cpu: equ $-cons_tipo_cpu
+cons_modelo_ext: db 'Modelo extendido: '
+cons_tam_modelo_ext: equ $-cons_modelo_ext  
+
+;----------------------------------------Nombre del procesador-------------------------------------------
+PN db  'Nombre del procesador:  ', 
+tam_PN: equ $-PN
+ID db  'Información del procesador:  ', 
+tam_ID: equ $-ID
+;----------------------------------------Cores y Threads-------------------------------------------
+
+CT db  'Información de Cores y Threads:  ', 
+tam_CT: equ $-CT
+cores:db'Cores: ' 
+tam_cores:equ $-cores
+threads: db 'Threads: '
+tam_threads:equ $-threads
+
+;----------------------------------------Info de Disco duro--------------------------------------
+
+nombre_archivo: db '/sys/block/sda/size',0
+tam_nombre_archivo: equ $-nombre_archivo
+
+bloques db 'Número de bloques: '
+tam_bloques: equ $-bloques
+
+TD db 'Tamaño de disco duro: '
+tam_TD: equ $-TD
+
+GB db ' GB '
+tam_GB:  equ  $-GB
+
+HD db  'Información del disco duro:  '
+tam_HD: equ $-HD
+
+
+;------------------------------------Saltos de linea----------------------------------------------
+
+SLinea2 db 0xa
+cons_nueva_linea2: equ $-SLinea2
+SLinea db 0xa
+cons_nueva_linea: db 0xa
+
+
+;-----------------------------------Variables no inicializadas---------------------------
 section  .bss
+
+modelo0: resb 8
+modelo: resb 8
+modelo2: resb 8
+modelo3: resb 8
+contenido_archivo: resb 10
+
 fabricante_id:       resd	12	 ;Identificacion del fabricante (vendor) [12 Double]
 resultado: resb 56 
 out: resb 1 ;Salida en formato ASCII hacia consola
@@ -168,11 +244,13 @@ variable: resb 1
 variable2: resb 1
 valor_max: resb 1
 Pro_name: resd 48 ; Para obtener el nombre del procesador
-;---------------------------------------------------------------------------------------------------------------------
+datofinal: resb 56 ;Usado para almacenar el tamaño de disco duro
+;---------------------------------------------------------------------------------------------------------
+
 ;Segmento de codigo
 section .text
     global _start
-;------------------------------Inicio de codigo-------------------------------------
+;------------------------------Inicio de codigo--------------------------------------------------
 _start:
 
 jmp _MSJS
@@ -220,6 +298,8 @@ _COMP:
 		cmp r11,0x35;compara con 5 salida
 		je _Cores_threads
 		cmp r11,0x36
+		je _Disco
+		cmp r11,0x37
 		je  _FINPROGRA
 		;HAY QUE HACER UNO QUE ENVIE UN MSJ DE ERROR
 		
@@ -230,10 +310,6 @@ _LIBERAR:
 		mov rdx,r10
 		mov rsi,r10
 		jmp _CAPT
-	
-				
-	
-
 	
 ;---------------INFO DEL MICROPROCESADOR--------------------------------------------------------------------
 ;-------------------------------------------------------------------------------
@@ -791,6 +867,131 @@ _Cores_threads:
 
 	
 	jmp _MSJS2
+
+;------------------------------------------------------------Info Disco----------------------------------------------------------------------------
+_Disco:
+
+mov ebx,nombre_archivo
+mov eax,5
+mov ecx,0
+int 80h
+
+mov eax,3
+mov ebx,3
+mov ecx,contenido_archivo
+mov edx,150
+int 80h
+
+
+impr_texto   limp_terminal,   limp_terminal_tam
+impr_texto  HD,  tam_HD
+impr_linea  SLinea2,cons_nueva_linea2
+;impr_texto bloques,tam_bloques	; imprime encambezado
+impr_texto TD,tam_TD	; imprime encambezado
+
+mov r8,0x0      ;Limpio el registro
+mov r8,[contenido_archivo]	
+and r8,0x0000000F ;utilizo una màscara para extraer el dato que nos interesa
+mov rax,r8		
+mov r9,10000000 ; para hacer la conversión
+mul r9 ; mùltiplico lo que hay en r8 con lo que tiene r9
+mov r8,rax ; muevo el resultado del producto a r8 ( se encontraba almacenado en rax)
+mov[datofinal],r8 
+
+
+
+mov r8,0x0      ;Limpio el registro
+mov r8,[contenido_archivo]		;busca el segundo registro de memoria total (son ceros asi que con 1 byte basta)
+and r8,0x00000F00		
+shr r8,8
+mov rax,r8
+mov r9, 1000000
+mul r9
+mov r8,[datofinal]
+add r8,rax
+mov [datofinal],r8
+
+mov r8,0x0      ;Limpio el registro
+mov r8,[contenido_archivo]	
+and r8,0x000F0000		
+shr r8,16
+mov rax,r8
+mov r9, 100000
+mul r9
+mov r8,[datofinal]
+add r8,rax
+mov [datofinal],r8
+
+mov r8,0x0      ;Limpio el registro
+mov r8,[contenido_archivo]	
+and r8,0x0F000000		
+shr r8,24
+mov rax,r8
+mov r9, 10000
+mul r9
+mov r8,[datofinal]
+add r8,rax
+mov [datofinal],r8
+_b4:
+;____________________________________
+
+mov r8,0x0      ;Limpio el registro
+mov r8,[contenido_archivo+4]	
+and r8,0x0000000F		
+mov rax,r8
+mov r9, 1000
+mul r9
+mov r8,[datofinal]
+add r8,rax
+mov [datofinal],r8
+
+mov r8,0x0      ;Limpio el registro
+mov r8,[contenido_archivo+4]		;busca el segundo registro de memoria total (son ceros asi que con 1 byte basta)
+and r8,0x00000F00		
+shr r8,8
+mov rax,r8
+mov r9, 100
+mul r9
+mov r8,[datofinal]
+add r8,rax
+mov [datofinal],r8
+
+mov r8,0x0      ;Limpio el registro
+mov r8,[contenido_archivo+4]	
+and r8,0x000F0000		
+shr r8,16
+mov rax,r8
+mov r9, 10
+mul r9
+mov r8,[datofinal]
+add r8,rax
+mov [datofinal],r8
+
+mov r8,0x0      ;Limpio el registro
+mov r8,[contenido_archivo+4]	
+and r8,0x0F000000		
+shr r8,24
+mov rax,r8
+mov r9, 1
+mul r9
+mov r8,[datofinal]
+add r8,rax
+mov [datofinal],r8
+
+mov rax,[datofinal]
+mov r9,2097152    ;  (1024*1024*2) para convertir en GB
+div r9
+mov [datofinal],rax
+
+impr_decfe [datofinal]
+impr_texto GB,tam_GB	; imprime encambezado
+
+impr_linea  SLinea2,cons_nueva_linea2
+
+jmp _MSJS2
+
+
+
 ;------------------------------------------------------------Sub Menú----------------------------------------------------------------------------
 
 
