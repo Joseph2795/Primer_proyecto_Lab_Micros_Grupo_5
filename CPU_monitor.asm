@@ -173,7 +173,7 @@ hora: resb 56
 minu: resb 8
 segu: resb 56
 un_byte: resb 1
-valor_max: resb 3
+valor_max: resb 5
 tiempo_espera:
 	tv_sec: resq 1 ;Cantidad de espera en segundos
 	tv_nsec: resq 9 ;cantidad de espera en nanosegundos
@@ -187,7 +187,7 @@ _start:
 ;ABRIR ARCHIVO
 mov EAX, 8
 mov EBX, filename
-mov ECX, 0777o; sustituir 0700 por 0777 o por 7777; esto para cual da el permiso total sistema
+mov ECX, 0777o; 
 int 0x80
 
 mov EBX, 3
@@ -323,7 +323,29 @@ jl _error ;si es mayor a 48
 cmp r11, 57 ; revisa si el dato es menor a 57
 jg _error ;si es mayor a 48
 
+xor r12,r12
+
+cmp r8, 48 ; revisa si el dato es mayor a 48
+jne _continue
+inc r12;
+cmp r9, 48 ; revisa si el dato es mayor a 48
+jne _continue
+inc r12;
+cmp r10, 48 ; revisa si el dato es mayor a 48
+jne _continue
+inc r12;
+cmp r11, 48 ; revisa si el dato es mayor a 48
+jne _continue
+inc r12;
+
+cmp r12, 4
+je _error
+
+
+
 ;se realiza la conversión de ascii a su valor decimal, para hacer el dato útil para las operaciones
+
+_continue:
 
 sub r8,0x30
 sub r9,0x30
